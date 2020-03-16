@@ -1,0 +1,291 @@
+var wndMain: wnd@Wnd
+var drawMain: wnd@Draw
+
+const WIDTH: float :: 1600.0
+const HEIGHT: float :: 900.0
+const Xm: int :: 10
+const Ym: int :: 10
+var q_table: []float
+var epsilon: float :: 100.0
+var font: draw@Font
+class Player()
+	+var x: int
+	+var y: int
+	+var action: int
+	+func init(x: int, y: int)
+		do me.x :: x
+		do me.y :: y
+	end func
+end class
+
+class Target()
+	+var x: int
+	+var y: int
+	+func init(x: int, y: int)
+		do me.x :: x
+		do me.y :: y
+	end func
+end class
+
+class Game()
+	var map: []int
+	+var p: @Player
+	+var t: @Target
+	+var state_value: []float
+	*func ctor()
+		do @font :: draw@makeFont(null, 10, false, false, true, 0.0)
+		do me.map :: #[@Xm * @Ym]int
+		do me.p :: #@Player
+		do me.t :: #@Target
+		do me.p.init(@Xm - 1, 0)
+		do me.t.init(0, @Ym - 1)
+		do me.state_value :: #[@Xm * @Ym]float
+	end func
+	+func init()
+		do me.p.init(@Xm - 1, 0)
+		do me.t.init(0, @Ym - 1)
+	end func
+	+func draw()
+		do draw@clearColor(0xFFFFFFFF)
+		var width: float :: @WIDTH / @Xm $ float
+		var height: float :: @HEIGHT / @Ym $ float
+		for y(0, @Ym - 1)
+			for x(0, @Xm - 1)
+				
+				
+				
+				if(x = me.p.x & y = me.p.y)
+					do me.map[x + y * @Ym] :: 1
+				elif(x = me.t.x & y = me.t.y)
+					do me.map[x + y * @Ym] :: 2
+				else
+					do me.map[x + y * @Ym] :: 0
+				end if
+				
+				var color: int
+				;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;マイナス報酬与えるときは色の値を考える！！！！！！
+				if(me.state_value[x + y * @Ym] < 0.0)
+					do color :: 0
+				else
+					do color :: me.state_value[x + y * @Ym] $ int
+				end if
+				do draw@rect(x $ float * width, y $ float * height, width, height, 0xFFFFFFFF - color)
+				
+				switch(me.map[x + y * @Ym])
+				case 1
+					do draw@rect(x $ float * width, y $ float * height, width, height, 0xFFFFBBBB)
+				case 2
+					do draw@rect(x $ float * width, y $ float * height, width, height, 0xFFBBBBFF)
+				end switch
+				do @font.draw(x $ float * width + width / 2.0 + width / 3.0, y $ float * height + height / 2.0, "\{@q_table[(x + y * @Ym) * 4 + 0]}", 0xFF000000)
+				do @font.draw(x $ float * width + width / 2.0 - width / 3.0, y $ float * height + height / 2.0, "\{@q_table[(x + y * @Ym) * 4 + 1]}", 0xFF000000)
+				do @font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0 + height / 3.0, "\{@q_table[(x + y * @Ym) * 4 + 2]}", 0xFF000000)
+				do @font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0 - height / 3.0, "\{@q_table[(x + y * @Ym) * 4 + 3]}", 0xFF000000)
+				
+				do draw@rectLine(x $ float * width, y $ float * height, width, height, 0xFF000000)
+			end for
+		end for
+	end func
+	+func move_p(action: int)
+		do me.p.action :: action
+		switch(action)
+		case 0
+			if(me.out(me.p.x + 1, me.p.y) = 0)
+				do me.p.x :+ 1
+			end if
+		case 1
+			if(me.out(me.p.x - 1, me.p.y) = 0)
+				do me.p.x :- 1
+			end if
+		case 2
+			if(me.out(me.p.x, me.p.y + 1) = 0)
+				do me.p.y :+ 1
+			end if
+		case 3
+			if(me.out(me.p.x, me.p.y - 1) = 0)
+				do me.p.y :- 1
+			end if
+		end switch
+	end func
+	+func occasion(q_state: int): int
+		var action: int :: q_state % 4
+		var pos: int :: (q_state - action) / 4
+		var x: int :: pos % @Ym
+		var y: int :: (pos - x) / @Ym
+		switch(action)
+		case 0
+			do x :+ 1
+		case 1
+			do x :- 1
+		case 2
+			do y :+ 1
+		case 3
+			do y :- 1
+		end switch
+		if(me.out(x, y) <> 0)
+			ret - 1
+		end if
+		if(x = me.t.x & y = me.t.y)
+			ret 1
+		end if
+		ret 0
+	end func
+	+func get_next_pos(q_state: int): int
+		var action: int :: q_state % 4
+		var pos: int :: (q_state - action) / 4
+		var x: int :: pos % @Ym
+		var y: int :: (pos - x) / @Ym
+		switch(action)
+		case 0
+			do x :+ 1
+		case 1
+			do x :- 1
+		case 2
+			do y :+ 1
+		case 3
+			do y :- 1
+		end switch
+		ret x + y * @Ym
+	end func
+	+func out(x: int, y: int): int
+		if(x > @Xm - 1 | x < 0 | y > @Ym - 1 | y < 0)
+			ret 1
+		end if
+		ret 0
+	end func
+	
+end class
+
+class Learn()
+	var game: @Game
+	var time: int
+	var TrainCount: int
+	var count: int
+	var step: int
+	*func ctor()
+		do me.game :: #@Game
+		do @q_table :: #[@Xm * @Ym * 4]float
+		do me.time :: 0
+		do me.count :: 0
+		do me.step :: 0
+		;;↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓これが描画しないで学習する回数。
+		do me.TrainCount :: 1000
+	end func
+	+func init()
+		if(me.game.p.x = me.game.t.x & me.game.p.y = me.game.t.y)
+			do me.game.init()
+			do me.count :+ 1
+			do dbg@print("ε:\{@epsilon},count:\{me.count},step:\{me.step}で終了しました。\n")
+			;do @epsilon :: 100.0
+			
+			do me.step :: 0
+		end if
+	end func
+	+func draw()
+		do me.game.draw()
+	end func
+	+func update()
+		
+		var Q_max_now: float :: -999999.0
+		var Q_max_next: float :: -999999.0
+		var r: float :: 0.0
+		var eta: float :: 0.2
+		var gamma: float :: 0.8
+		var a: int :: 0
+		
+		
+		
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;↓↓↓↓↓
+		;ここで、今取りうる行動で最大のものを選ぶ
+		for i(0, 3)
+			var q_state: int :: (me.game.p.x + me.game.p.y * @Ym) * 4 + i
+			if(me.game.occasion(q_state) <> -1)
+				if(@q_table[q_state] > Q_max_now)
+					do Q_max_now :: @q_table[q_state]
+					do a :: i
+				end if
+			end if
+		end for
+		
+		;行動をランダムで選ぶ
+		if(lib@rndFloat(0.0, 100.0) <= @epsilon | Q_max_now = 0.0)
+			var q_state: int :: (me.game.p.x + me.game.p.y * @Ym) * 4 + a
+			while(me.game.occasion(q_state) = -1, skip)
+				do a :: lib@rnd(0, 3)
+				do q_state :: (me.game.p.x + me.game.p.y * @Ym) * 4 + a
+			end while
+		end if
+		do @epsilon :/ 1.001
+		;;;;;;;;;;;;;;;;;;;;;;↑↑↑↑↑今取りうる４つの行動のうち、Q値(価値)が最大のものを選ぶ。たまにランダムにえらぶ。
+		
+		
+		
+		;***************************最大の行動先だけ評価をする
+		for i(0, 3)
+			var q_state: int :: me.game.get_next_pos((me.game.p.x + me.game.p.y * @Ym) * 4 + a) * 4 + i
+			if(me.game.occasion(q_state) <> -1)
+				if(@q_table[q_state] > Q_max_next)
+					do Q_max_next :: @q_table[q_state]
+				end if
+			end if
+		end for
+		
+		var q_next_state: int :: (me.game.p.x + me.game.p.y * @Ym) * 4 + a
+		do r :: me.get_reward(me.game.occasion(q_next_state))
+		do @q_table[q_next_state] :: @q_table[q_next_state] + eta * (r + gamma * Q_max_next - @q_table[q_next_state])
+		;*************************************************	
+		
+		
+		
+		
+		
+		do me.game.state_value[me.game.p.x + me.game.p.y * @Ym] :: Q_max_now
+		do me.game.move_p(a)
+		
+	end func
+	
+	+func get_reward(flag: int): float
+		switch(flag)
+		case 1
+			ret 100.0
+		default
+			ret - 10.0
+		end switch
+	end func
+	
+	+func mainloop()
+		if(me.TrainCount > me.count)
+			do me.step :+ 1
+			do me.update()
+			do me.init()
+		else
+			do me.draw()
+			if(me.time % 1 = 0)
+				do me.step :+ 1
+				do me.update()
+			end if
+			do me.init()
+			do draw@render(60)
+		end if
+		
+		if(me.time % 100 = 0)
+			do dbg@print("ε:\{@epsilon},count:\{me.count},step:\{me.step}\n")
+		end if
+		do me.time :+ 1
+	end func
+end class
+
+
+
+
+
+
+
+func main()
+	do @wndMain :: wnd@makeWnd(null, %aspect, @WIDTH $ int, @HEIGHT $ int, "Title")
+	do @drawMain :: wnd@makeDraw(@wndMain, 0, 0, @WIDTH $ int, @HEIGHT $ int, %scale, %scale, false)
+	var learn: @Learn :: #@Learn
+	while(wnd@act())
+		do learn.mainloop()
+	end while
+end func
