@@ -1,0 +1,110 @@
++var q_table: [][]float
++var state_value: []float
+
++class Learn()
+	
+	+var time: int
+	+var TrainCount: int
+	+var count: int
+	+var step: int
+	+var eta: float
+	+var gamma: float
+	+var epsilon: float
+	+var timeper: int
+	+var epsilon_per: float
+	*func ctor()
+		do @state_value :: #[\game@Xm * \game@Ym]float
+		do @q_table :: #[\game@Xm, \game@Ym]float
+		do me.time :: 0
+		do me.count :: 0
+		do me.step :: 0
+	end func
+	
+	+func init()
+		do me.count :+ 1
+		do dbg@print("count:\{me.count},step:\{me.step}で終了しました。\n")
+		do me.step :: 0
+	end func
+	
+	+func learn(p: \game@Player, t: \game@Target): int
+		do me.step :+ 1
+		
+		var Q_max: float
+		var r: float :: 0.0
+		var a: int :: 0
+		
+		
+		;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;↓↓↓↓↓
+		;ここで、今取りうる行動で最大のものを選ぶ
+		for i(0, 3)
+			var pos: []int :: me.get_next_pos(p.x, p.y, i)
+			var count: int
+			if(me.out(pos[0], pos[1]) <> -1)
+				do count :+ 1
+				if(@q_table[pos[0]][pos[1]] > Q_max | count = 1)
+					do Q_max :: @q_table[pos[0]][pos[1]]
+					do a :: i
+				end if
+			end if
+		end for
+		;***************************今の状態・行動を評価をする
+		do r :: me.get_reward(p, t)
+		do @q_table[p.x][p.y] :: @q_table[p.x][p.y] + 0.2 * (r + 0.8 * Q_max - @q_table[p.x][p.y])
+		;*************************************************	
+		
+		do @state_value[p.x + p.y * \game@Ym] :: @q_table[p.x][p.y]
+		if(Q_max = 0.0)
+			do a :: lib@rnd(0, 3)
+		end if
+		
+		ret a
+	end func
+	
+	
+	+func out(x: int, y: int): int
+		if(x > \game@Xm - 1 | x < 0 | y > \game@Ym - 1 | y < 0)
+			ret - 1
+		end if
+		ret 0
+	end func
+	
+	+func get_reward(p: \game@Player, t: \game@Target): float
+		if(p.x = t.x & p.y = t.y)
+			ret 10.0
+		end if
+		ret 0.0
+	end func
+	
+	+func get_next_pos(x: int, y: int, a: int): []int
+		switch(a)
+		case 0
+			do x :+ 1
+		case 1
+			do x :- 1
+		case 2
+			do y :- 1
+		case 3
+			do y :+ 1
+		end switch
+		ret[x, y]
+	end func
+	
+	+func draw(x: int, y: int, width: float, height: float, font: draw@Font)
+		
+		if(me.out(x + 1, y) <> -1)
+			do font.draw(x $ float * width + width / 2.0 + width / 3.0, y $ float * height + height / 2.0, "\{@q_table[x + 1][y]}", 0xFF000000)
+		end if
+		if(me.out(x - 1, y) <> -1)
+			do font.draw(x $ float * width + width / 2.0 - width / 3.0, y $ float * height + height / 2.0, "\{@q_table[x - 1][y]}", 0xFF000000)
+		end if
+		if(me.out(x, y - 1) <> -1)
+			do font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0 - height / 3.0, "\{@q_table[x][y - 1]}", 0xFF000000)
+		end if
+		if(me.out(x, y + 1) <> -1)
+			do font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0 + height / 3.0, "\{@q_table[x][y + 1]}", 0xFF000000)
+		end if
+		do font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0, "\{@state_value[x + y * \game@Ym]}", 0xFF000000)
+		
+	end func
+	
+end class

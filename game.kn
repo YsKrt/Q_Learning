@@ -1,0 +1,186 @@
+
++const Xm: int :: 3
++const Ym: int :: 3
+const F: int :: 2
+
+var font: draw@Font
++class Player()
+	+var x: int
+	+var y: int
+	+var action: int
+	+func init(x: int, y: int)
+		do me.x :: x
+		do me.y :: y
+	end func
+end class
+
++class Target()
+	+var x: int
+	+var y: int
+	+func init(x: int, y: int)
+		do me.x :: x
+		do me.y :: y
+	end func
+end class
+
++class Game()
+	+var learn: \learn@Learn
+	+var learn2: \learn2@Learn
+	var map: []int
+	+var p: @Player
+	+var t: @Target
+	var goalF: int
+	*func ctor()
+		do me.learn :: #\learn@Learn
+		do me.learn2 :: #\learn2@Learn
+		do @font :: draw@makeFont(null, 10, false, false, true, 0.0)
+		do me.map :: #[@Xm * @Ym]int
+		do me.p :: #@Player
+		do me.t :: #@Target
+		do me.p.init(@Xm - 1, 0)
+		do me.t.init(0, @Ym - 1)
+		
+	end func
+	+func init()
+		if(me.goalF = 1)
+			do me.p.init(@Xm - 1, 0)
+			do me.t.init(0, @Ym - 1)
+			switch(@F)
+			case 1
+				do me.learn.init()
+			case 2
+				do me.learn2.init()
+			end switch
+			do me.goalF :: 0
+		end if
+		
+		if(me.p.x = me.t.x & me.p.y = me.t.y)
+			do me.goalF :: 1
+		end if
+	end func
+	+func mainloop()
+		while(wnd@act())
+			if(me.learn.TrainCount > me.learn.count)
+				do me.init()
+				do me.control()
+			else
+				do me.init()
+				do me.draw()
+				do me.control()
+			end if
+		end while
+	end func
+	+func control()
+		var move: int
+		switch(@F)
+		case 1
+			do move :: me.learn.learn(me.p, me.t)
+		case 2
+			do move :: me.learn2.learn(me.p, me.t)
+		end switch
+		do me.move_p(move)
+	end func
+	+func draw()
+		do draw@clearColor(0xFFFFFFFF)
+		var width: float :: \main@WIDTH / @Xm $ float
+		var height: float :: \main@HEIGHT / @Ym $ float
+		for y(0, @Ym - 1)
+			for x(0, @Xm - 1)
+				if(x = me.p.x & y = me.p.y)
+					do me.map[x + y * @Ym] :: 1
+				elif(x = me.t.x & y = me.t.y)
+					do me.map[x + y * @Ym] :: 2
+				else
+					do me.map[x + y * @Ym] :: 0
+				end if
+				switch(@F)
+				case 1
+					var color: int
+					if(\learn@state_value[x + y * @Ym] > 0.0)
+						do color :: \learn@state_value[x + y * @Ym] $ int * 10
+					else
+						do color :: 0
+					end if
+					do draw@rect(x $ float * width, y $ float * height, width, height, 0xFFFFFFFF - color)
+				case 2
+					var a: int
+					var max: float :: 0.0
+					for i3(0, 3)
+						if(\learn2@pg[x][y][i3] > max | i3 = 0)
+							do max :: \learn2@pg[x][y][i3]
+							do a :: i3
+						end if
+					end for
+					if(max = lib@exp(0.25))
+						do a :: -1
+					end if
+					var policy: []char
+					switch(a)
+					case -1
+						do policy :: "o"
+					case 0
+						do policy :: "→"
+					case 1
+						do policy :: "←"
+					case 2
+						do policy :: "↑"
+					case 3
+						do policy :: "↓"
+					end switch
+					do @font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0, "\{policy}", 0xFF000000)
+				end switch
+				
+				switch(me.map[x + y * @Ym])
+				case 1
+					do draw@rect(x $ float * width, y $ float * height, width, height, 0xFFFFBBBB)
+				case 2
+					do draw@rect(x $ float * width, y $ float * height, width, height, 0xFFBBBBFF)
+				end switch
+				
+				switch(@F)
+				case 1
+					do me.learn.draw(x, y, width, height, @font)
+				case 2
+					do me.learn2.draw(x, y, width, height, @font)
+				end switch
+				
+				do draw@rectLine(x $ float * width, y $ float * height, width, height, 0xFF000000)
+			end for
+		end for
+		do draw@render(60)
+	end func
+	+func move_p(action: int)
+		do me.p.action :: action
+		switch(action)
+		case 0
+			;R
+			if(me.out(me.p.x + 1, me.p.y) = 0)
+				do me.p.x :+ 1
+			end if
+		case 1
+			;L
+			if(me.out(me.p.x - 1, me.p.y) = 0)
+				do me.p.x :- 1
+			end if
+		case 2
+			;U
+			if(me.out(me.p.x, me.p.y - 1) = 0)
+				do me.p.y :- 1
+			end if
+		case 3
+			;D
+			if(me.out(me.p.x, me.p.y + 1) = 0)
+				do me.p.y :+ 1
+			end if
+		end switch
+	end func
+	
+	
+	+func out(x: int, y: int): int
+		if(x > @Xm - 1 | x < 0 | y > @Ym - 1 | y < 0)
+			ret - 1
+		end if
+		ret 0
+	end func
+	
+end class

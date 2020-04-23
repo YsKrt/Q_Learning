@@ -1,0 +1,30 @@
+var wndMain: wnd@Wnd
+var drawMain: wnd@Draw
++const WIDTH: float :: 1600.0
++const HEIGHT: float :: 900.0
+
+func main()
+	var way: int
+	var game: \game@Game :: #\game@Game
+	
+	var result: []char :: wndex@inputBox(null, "count,η,γ,ε,draw,way,εper", "確認", "0,0.2,0.8,0.0,1,1,1.01", null)
+	if(result =& null)
+		ret
+	end if
+	var data: [][]char :: result.split(",")
+	var existed: bool
+	do game.learn.TrainCount :: data[0].toInt(&existed)
+	do game.learn.eta :: data[1].toFloat(&existed)
+	do game.learn.gamma :: data[2].toFloat(&existed)
+	do game.learn.epsilon :: data[3].toFloat(&existed)
+	do game.learn.timeper :: data[4].toInt(&existed)
+	do way :: data[5].toInt(&existed)
+	do game.learn.epsilon_per :: data[6].toFloat(&existed)
+	
+	
+	do @wndMain :: wnd@makeWnd(null, %aspect, @WIDTH $ int, @HEIGHT $ int, "Title")
+	do @drawMain :: wnd@makeDraw(@wndMain, 0, 0, @WIDTH $ int, @HEIGHT $ int, %scale, %scale, false)
+	
+	do game.mainloop()
+	
+end func

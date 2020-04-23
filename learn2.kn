@@ -1,0 +1,135 @@
++var pg: [][][]float
++var Ni: [][][]int
++var N: [][]int
++var log: list<[]int>
++class Learn()
+	+var time: int
+	+var TrainCount: int
+	+var count: int
+	+var step: int
+	+var eta: float
+	+var gamma: float
+	+var epsilon: float
+	+var timeper: int
+	+var epsilon_per: float
+	*func ctor()
+		do @log :: #list<[]int>
+		do @Ni :: #[\game@Xm, \game@Ym, 4]int
+		do @N :: #[\game@Xm, \game@Ym]int
+		do @pg :: #[\game@Xm, \game@Ym, 4]float
+		for i1(0, \game@Xm - 1)
+			for i2(0, \game@Ym - 1)
+				for i3(0, 3)
+					var next: []int :: me.get_next_pos(i1, i2, i3)
+					var outF: int :: me.out(next[0], next[1])
+					if(outF <> -1)
+						do @pg[i1][i2][i3] :: lib@exp(1.0 / 4.0)
+					else
+						do @pg[i1][i2][i3] :: lib@exp(0.0)
+					end if
+				end for
+			end for
+		end for
+		do me.time :: 0
+		do me.count :: 0
+		do me.step :: 0
+	end func
+	
+	+func init()
+		do me.update()
+		
+		do @log.head()
+		while(!@log.term())
+			var i: []int :: @log.get()
+			do @N[i[0]][i[1]] :: 0
+			do @Ni[i[0]][i[1]][i[2]] :: 0
+			do @log.del()
+		end while
+		
+		
+		do me.count :+ 1
+		do dbg@print("count:\{me.count},step:\{me.step}で終了しました。\n")
+		do me.step :: 0
+	end func
+	
+	+func learn(p: \game@Player, t: \game@Target): int
+		do me.step :+ 1
+		
+		var a: int
+		;行動決定
+		do a :: me.p_sel(@pg[p.x][p.y], p)
+		;行動の記録
+		do @log.add([p.x, p.y, a])
+		do @Ni[p.x][p.y][a] :+ 1
+		do @N[p.x][p.y] :+ 1
+		ret a
+	end func
+	
+	+func update()
+		var T: int :: me.step
+		do @log.head()
+		while(!@log.term())
+			var i: []int :: @log.get()
+			var P: float :: 0.0
+			for i3(0, 3)
+				do P :+ lib@ln(@pg[i[0]][i[1]][i3])
+			end for
+			var d_theta: float
+			var Pi: float :: lib@ln(@pg[i[0]][i[1]][i[2]]) / P
+			do d_theta :: (@Ni[i[0]][i[1]][i[2]] $ float + Pi * @N[i[0]][i[1]] $ float) / T $ float
+			do @pg[i[0]][i[1]][i[2]] :+ 0.8 * (d_theta)
+			do @log.next()
+		end while
+		
+	end func
+	
+	+func p_sel(prob: []float, p: \game@Player): int
+		var p_sum: float :: 0.0
+		var a: int :: -1
+		
+		for i(0, 3)
+			do p_sum :+ lib@ln(prob[i])
+		end for
+		
+		for i(0, 3)
+			var next: []int
+			do next :: me.get_next_pos(p.x, p.y, i)
+			var outF: int :: me.out(next[0], next[1])
+			if((lib@rndFloat(0.0, p_sum) <= lib@ln(prob[i]) & outF <> -1) | (outF <> -1 & a = -1))
+				do a :: i
+			end if
+		end for
+		
+		ret a
+	end func
+	
+	+func draw(x: int, y: int, width: float, height: float, font: draw@Font)
+		do font.draw(x $ float * width + width / 2.0 + width / 3.0, y $ float * height + height / 2.0, "\{lib@ln(@pg[x][y][0])}", 0xFF000000)
+		do font.draw(x $ float * width + width / 2.0 - width / 3.0, y $ float * height + height / 2.0, "\{lib@ln(@pg[x][y][1])}", 0xFF000000)
+		do font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0 - height / 3.0, "\{lib@ln(@pg[x][y][2])}", 0xFF000000)
+		do font.draw(x $ float * width + width / 2.0, y $ float * height + height / 2.0 + height / 3.0, "\{lib@ln(@pg[x][y][3])}", 0xFF000000)
+	end func
+	
+	
+	+func out(x: int, y: int): int
+		if(x > \game@Xm - 1 | x < 0 | y > \game@Ym - 1 | y < 0)
+			ret - 1
+		end if
+		ret 0
+	end func
+	
+	+func get_next_pos(x: int, y: int, a: int): []int
+		switch(a)
+		case 0
+			do x :+ 1
+		case 1
+			do x :- 1
+		case 2
+			do y :- 1
+		case 3
+			do y :+ 1
+		end switch
+		ret[x, y]
+	end func
+	
+end class
